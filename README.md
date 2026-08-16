@@ -219,7 +219,8 @@ macOS 保留最小默认菜单。
 菜单的**插件管理器…**或 `--plugin-manager` 随时打开：
 
 - 列出两份用户补丁（`profiles/web/cordis.patch.yml` 与 `cordis.patch.yml`）里的全部
-  插件：名称、id、来源、insert 行/独立行、启用状态；
+  插件：名称、id、来源、insert 行/独立行、启用状态；**壳自带插件**（如 `dsh-desktop-polish`）
+  标记「壳自带 · 不可管理」，不提供禁用/启用（IPC 层同样拒绝），避免自救工具误伤壳自身；
 - **自动高亮启动失败的元凶**（从 boot 错误里解析 `failed to import loader entry <id> (<name>)`），
   顶部横幅直接提示「禁用它然后重启」；
 - 每行一个**禁用/启用**开关：禁用 = 向补丁文件追加一行 `- { id: "...", disabled: true }`
