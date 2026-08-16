@@ -253,6 +253,7 @@ function createMainWindow(url: string): BrowserWindow {
     // Match the system theme so the first paint never flashes white.
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#14161c" : "#f5f6f7",
     title: "DSH Desktop",
+    icon: trayIconPath(),
     ...titleBarWindowOptions(),
     webPreferences: {
       contextIsolation: true,

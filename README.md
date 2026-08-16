@@ -164,7 +164,7 @@ dsh plugin --profile web add ./plugins/dsh-desktop-polish
 运行中的窗口立即套用新 token——无需重启、无需重新构建前端。
 
 壳层观感（`src/main/main.ts`）：启动底色跟随系统主题防白闪、窗口渐显（约 120ms）、
-新图标（墨蓝渐变 + 对话气泡，`npm run make-icon` 重新生成）；Windows/Linux 上移除了
+DeepSeek 鲸鱼图标（`assets/icon.svg`，`npm run make-icon` 渲染）；Windows/Linux 上移除了
 Electron 默认菜单栏（File/Edit/View/…）及其快捷键（Ctrl+R/F12 等），窗口只剩纯 UI，
 macOS 保留最小默认菜单。
 
