@@ -1,0 +1,35 @@
+{
+  "name": "dsh-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH desktop shell (Phase 1): Electron window over the in-process dsh web profile",
+  "type": "module",
+  "main": "dist/main/main.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && electron .",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:electron": "npm run build && electron . --smoke",
+    "rebuild:pty": "electron-rebuild -f -w node-pty",
+    "rebuild:all": "electron-rebuild -f",
+    "make-icon": "node scripts/make-icon.mjs",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-app-boot": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-cmdline": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-launch-environment": "^0.1.0-rc.6"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.0",
+    "@types/node": "^22.10.0",
+    "electron": "37.2.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.7.0"
+  }
+}

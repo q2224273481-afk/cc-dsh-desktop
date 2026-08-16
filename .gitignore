@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+release/
+
+# Electron runtime / user data (incl. all probe/smoke/pm variants)
+.electron-userdata*/
+.dsh-run-home/
+.dsh-smoke-home/
+.loadtest-html/
+.loadtest-userdata/
+.probe*/
+
+# local-only config (machine-specific npm cache path)
+.npmrc
+
+# logs
+*.log

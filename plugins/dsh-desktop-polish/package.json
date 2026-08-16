@@ -1,0 +1,26 @@
+{
+  "name": "dsh-desktop-polish",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Desktop polish theme layer for the DSH web surface (modern, restrained)",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "theme"
+      ],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "main": "lib/index.js",
+  "files": [
+    "lib/index.js",
+    "client.js"
+  ]
+}

@@ -1,0 +1,3 @@
+# Normalize line endings: store LF, keep LF in working tree
+* text=auto eol=lf
+*.png binary

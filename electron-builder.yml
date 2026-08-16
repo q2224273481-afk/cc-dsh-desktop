@@ -1,0 +1,29 @@
+# electron-builder config for dsh-desktop (Phase 1, Windows-first)
+appId: dev.dsh.desktop
+productName: DSH Desktop
+directories:
+  output: release
+  buildResources: assets
+electronDist: node_modules/electron/dist
+files:
+  - dist/**/*
+  - src/preload/**
+  - assets/icon.png
+  - package.json
+  - "!node_modules/.cache/**"
+asar: false
+# asar is disabled on purpose: healProfilesModuleFallback junctions
+# $DSH_HOME/profiles/node_modules into the real dependency directories, and
+# symlink/junction targets, native modules, and worker_threads cannot live
+# inside an asar archive. Everything ships as real files under resources/app.
+# All native deps (loader helper, koffi, sharp, node-pty 1.1+) are N-API: no ABI rebuild needed.
+npmRebuild: false
+win:
+  target:
+    - nsis
+  icon: assets/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
