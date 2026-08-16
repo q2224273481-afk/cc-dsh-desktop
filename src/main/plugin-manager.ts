@@ -16,6 +16,7 @@ import {
   extractFailedPlugin,
   listPlugins,
   patchPaths,
+  SHELL_PLUGIN_IDS,
   type PatchPlugin,
 } from "./patch-ops.js";
 
@@ -78,6 +79,7 @@ export function installPmIpc(deps: PmDeps): void {
     const { action, id, file } = payload as { action?: unknown; id?: unknown; file?: unknown };
     if (typeof id !== "string" || typeof file !== "string") throw new Error("bad payload");
     if (!allowedPatchFiles().includes(file)) throw new Error("refusing to write outside the user patch files");
+    if (SHELL_PLUGIN_IDS.has(id)) throw new Error("壳自带插件不可通过管理器禁用/启用");
     if (action === "disable") disablePlugin(file, id);
     else if (action === "enable") enablePlugin(file, id);
     else throw new Error("unknown action");
@@ -161,6 +163,7 @@ const PAGE_HTML = `<!doctype html>
   .tag { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; letter-spacing: 0.02em; }
   .tag.fail { background: rgba(242, 109, 109, 0.18); color: #f2b8b8; border: 1px solid rgba(242, 109, 109, 0.4); }
   .tag.off { background: rgba(255, 255, 255, 0.07); color: var(--text-dim); border: 1px solid var(--border); }
+  .tag.shell { background: rgba(157, 184, 232, 0.14); color: #9db8e8; border: 1px solid rgba(157, 184, 232, 0.4); }
   .btn {
     flex: none; padding: 5px 14px;
     border: 1px solid var(--border); border-radius: 6px;
@@ -237,6 +240,7 @@ const PAGE_HTML = `<!doctype html>
       name.innerHTML =
         (failed ? '<span class="tag fail">启动失败</span> ' : "") +
         (p.disabled ? '<span class="tag off">已禁用</span> ' : "") +
+        (p.shellOwned ? '<span class="tag shell">壳自带</span> ' : "") +
         esc(p.name || p.id);
       var sub = document.createElement("div");
       sub.className = "sub";
@@ -246,16 +250,23 @@ const PAGE_HTML = `<!doctype html>
         ' · <a href="#" data-open="' + esc(p.file) + '">打开补丁文件</a>';
       info.appendChild(name);
       info.appendChild(sub);
-      var btn = document.createElement("button");
-      btn.className = "btn " + (p.disabled ? "on" : "off");
-      btn.textContent = p.disabled ? "启用" : "禁用";
-      btn.addEventListener("click", function () {
-        api.pm.set({ action: p.disabled ? "enable" : "disable", id: p.id, file: p.file })
-          .then(render)
-          .catch(function (e) { alert("操作失败: " + e); });
-      });
       row.appendChild(info);
-      row.appendChild(btn);
+      if (p.shellOwned) {
+        var badge = document.createElement("span");
+        badge.className = "tag shell";
+        badge.textContent = "壳自带 · 不可管理";
+        row.appendChild(badge);
+      } else {
+        var btn = document.createElement("button");
+        btn.className = "btn " + (p.disabled ? "on" : "off");
+        btn.textContent = p.disabled ? "启用" : "禁用";
+        btn.addEventListener("click", function () {
+          api.pm.set({ action: p.disabled ? "enable" : "disable", id: p.id, file: p.file })
+            .then(render)
+            .catch(function (e) { alert("操作失败: " + e); });
+        });
+        row.appendChild(btn);
+      }
       list.appendChild(row);
     });
     snap.sources.forEach(function (s) {

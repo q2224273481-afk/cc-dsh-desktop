@@ -11,6 +11,10 @@ import * as jsyaml from "js-yaml";
 
 const DISABLE_COMMENT = "# disabled via dsh-desktop plugin manager";
 
+/** Plugins bundled with the shell itself. The rescue manager marks these
+ *  "壳自带" and refuses to disable them — they are not user plugins. */
+export const SHELL_PLUGIN_IDS = new Set(["dsh-desktop-polish"]);
+
 // !!js expressions appear in some patch files; the manager never evaluates
 // them — they surface as opaque placeholders (only id/name/disabled are read).
 const JsExpr = new jsyaml.Type("tag:yaml.org,2002:js", {
@@ -25,6 +29,8 @@ export interface PatchPlugin {
   name: string | null;
   inserted: boolean;
   disabled: boolean;
+  /** True when the plugin ships with the shell (not a user plugin). */
+  shellOwned: boolean;
   /** First source file that mentions the plugin (the insert row's file wins). */
   file: string;
   kind: "profile" | "home";
@@ -88,7 +94,7 @@ export function readPatchSource(file: string, kind: "profile" | "home"): PatchSo
   if (!base.exists) return { ...base, plugins: [] };
   try {
     const parsed = jsyaml.load(readFileSync(file, "utf8"), { schema: SCHEMA });
-    const plugins = collectRows(parsed).map((row) => ({ ...row, file, kind }));
+    const plugins = collectRows(parsed).map((row) => ({ ...row, file, kind, shellOwned: SHELL_PLUGIN_IDS.has(row.id) }));
     return { ...base, plugins };
   } catch (error) {
     return { ...base, error: error instanceof Error ? error.message : String(error), plugins: [] };

@@ -25,6 +25,7 @@
 
 import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { createWriteStream, mkdirSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -445,7 +446,18 @@ function relaunchApp(extraArgs: string[]): void {
   );
   const relaunchArgs = [...extraArgs, ...filtered];
   logLine("[recovery] relaunching with args", relaunchArgs);
-  app.relaunch({ args: relaunchArgs });
+
+  // app.relaunch() does not bring up a new process in this environment, so spawn
+  // the same binary manually. detached:true lets it outlive our exit; the fresh
+  // process retries the single-instance lock (see acquireSingleInstanceLock)
+  // until we release it on the way out.
+  const exe = process.execPath;
+  const argv = app.isPackaged ? relaunchArgs : [app.getAppPath(), ...relaunchArgs];
+  const child = spawn(exe, argv, { detached: true, stdio: "ignore" });
+  child.once("error", (error) => {
+    logLine("[recovery] relaunch spawn failed:", error.message);
+  });
+  child.unref();
 }
 
 function relaunchWithSafeMode(): void {
@@ -585,9 +597,23 @@ async function runPmProbe(): Promise<void> {
 }
 
 // ── lifecycle ─────────────────────────────────────────────────────────────────
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
-} else {
+// app.relaunch() spawns the new process while the old one is mid-exit and still
+// holds the single-instance lock, so a relaunched process can fail the first
+// lock attempt. Retry briefly instead of quitting instantly.
+async function acquireSingleInstanceLock(): Promise<boolean> {
+  if (app.requestSingleInstanceLock()) return true;
+  for (let i = 0; i < 12; i += 1) {
+    await new Promise((resolveIt) => setTimeout(resolveIt, 250));
+    if (app.requestSingleInstanceLock()) return true;
+  }
+  return false;
+}
+
+void (async () => {
+  if (!(await acquireSingleInstanceLock())) {
+    app.quit();
+    return;
+  }
   app.on("second-instance", () => showMainWindow());
 
   app.on("window-all-closed", () => {
@@ -698,4 +724,4 @@ if (!app.requestSingleInstanceLock()) {
       app.exit(1);
     }
   });
-}
+})();
