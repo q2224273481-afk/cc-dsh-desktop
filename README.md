@@ -293,6 +293,62 @@ npm run dist    # electron-builder --win → release/
 > 注：「退化模式」行是作者测试沙箱（会拦截未知进程创建 junction）的实测结果；普通用户机器
 > 无此限制，heal 正常执行，走 133/38 的正常路径。
 
+## 数据与目录
+
+壳的运行数据分三类，落在三处互不重叠的目录：
+
+### 1. DSH_HOME —— 会话 / 设置 / 插件（DSH 本体数据）
+
+默认 `~/.dsh`（Windows：`C:\Users\<你>\.dsh`），可用 `--home <dir>` 覆盖。这是 DSH 本体的数据根，与 CLI **完全共享**：
+
+```
+~/.dsh/
+├─ settings.yaml              # 全局设置
+├─ .credentials.yaml          # 凭据（密钥，勿提交 / 外传）
+├─ cordis.patch.yml           # home 级用户补丁（未启用过 home 补丁则不存在）
+├─ storages/                  # 会话、存储等 DSH 持久化数据
+└─ profiles/
+   ├─ node_modules/           # heal 出的扁平模块 fallback（junction，自动重建）
+   └─ web/                    # web profile
+      ├─ cordis.yml           # profile 根配置（空 entry 列表，勿手改）
+      ├─ cordis.patch.yml     # profile 级用户补丁（插件 insert / 禁用行）
+      ├─ package.json         # profile 包清单（dsh plugin add 写入）
+      ├─ pnpm-lock.yaml / pnpm-workspace.yaml
+      └─ node_modules/        # profile 内安装的插件依赖
+```
+
+- **插件补丁**：插件管理器（`--plugin-manager`）读写的就是 `profiles/web/cordis.patch.yml`
+  与 home 级 `cordis.patch.yml`。
+- **换壳不换数据**：会话、设置、凭据都在这里，桌面壳与浏览器版 / CLI 同源。
+
+### 2. Electron userData —— 壳自身日志与缓存
+
+默认 `%APPDATA%\dsh-desktop`（开发模式；打包后为 `%APPDATA%\DSH Desktop`），可用
+`--user-data <dir>` 覆盖：
+
+```
+<userData>/
+├─ logs/desktop-YYYYMMDD.log  # 壳 + 树全部日志（启动失败时看这里）
+└─ Cache / Code Cache / Local Storage / …   # Electron 浏览器缓存（可随时清）
+```
+
+### 3. 项目目录 —— 源码 / 构建 / 打包产物
+
+```
+dsh-desktop/
+├─ src/            # 源码（tsc → dist/）
+├─ dist/           # 编译产物（npm run build 生成，勿手改）
+├─ plugins/        # 自带客户端插件（dsh-desktop-polish）
+├─ assets/         # 图标（npm run make-icon 重新生成）
+├─ scripts/        # 冒烟 / 单测 / 图标生成脚本
+├─ release/        # electron-builder 打包产物（npm run dist 生成）
+└─ node_modules/   # 依赖（npm install 安装）
+```
+
+> **开发隔离**：本仓库开发时用 `--home .dsh-run-home --user-data .electron-userdata` 把运行数据
+> 钉在项目内（均已 .gitignore），避免污染真实 `~/.dsh`；纯 Node 冒烟则用 `.dsh-smoke-home`
+> 作为独立 DSH_HOME。
+
 ## 已知局限（Phase 1）
 
 - 本地 HTTP 端点仍在（`127.0.0.1` 随机端口），信任面与浏览器版相同；Phase 2 用 `file://` + IPC 桥移除端口。
