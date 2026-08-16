@@ -6,7 +6,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("dshDesktop", {
   // "app" for the main window, "manager" for the plugin rescue manager window.
-  kind: process.argv.includes("--dsh-manager-window") ? "manager" : "app",
+  kind: process.argv.includes("--dsh-manager-window") ? "manager"
+    : process.argv.includes("--dsh-updater-window") ? "updater"
+    : "app",
   // True when the shell runs a frameless window whose top strip is drawn by the
   // web app (Windows only for now). Client plugins mount the custom title bar
   // only in this mode.
@@ -19,6 +21,13 @@ contextBridge.exposeInMainWorld("dshDesktop", {
     set: (payload) => ipcRenderer.invoke("pm:set", payload),
     restart: (payload) => ipcRenderer.invoke("pm:restart", payload || {}),
     openFile: (file) => ipcRenderer.invoke("pm:open-file", file),
+  },
+  // DSH core update checker surface (used only by the update window).
+  upd: {
+    check: () => ipcRenderer.invoke("upd:check"),
+    update: (payload) => ipcRenderer.invoke("upd:update", payload),
+    restart: () => ipcRenderer.invoke("upd:restart"),
+    openRepo: () => ipcRenderer.invoke("upd:open-repo"),
   },
   // Report the themed colors computed in the page (from --dsw-alias-* CSS
   // variables) so the native window-controls overlay and the window background

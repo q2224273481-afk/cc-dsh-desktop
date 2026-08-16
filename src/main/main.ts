@@ -33,6 +33,8 @@ import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import { bootWebTree, type BootResult } from "./boot.js";
 import { runChildFallback } from "./fallback.js";
 import { installPmIpc, managerWebContents, openPluginManager } from "./plugin-manager.js";
+import { installUpdaterIpc, openUpdateWindow } from "./updater.js";
+import { checkForUpdate } from "./update-check.js";
 import { overlayFor, TITLEBAR_DEFAULTS, TITLEBAR_INJECT_SCRIPT } from "./titlebar.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -53,10 +55,12 @@ interface Flags {
   headless: boolean;
   pluginManager: boolean;
   pmProbe: boolean;
+  noCheckUpdate: boolean;
+  updateProbe: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { smoke: false, backend: "inprocess", noTray: false, quitOnClose: false, maximized: false, probe: false, tbMode: "d", safe: false, headless: false, pluginManager: false, pmProbe: false };
+  const flags: Flags = { smoke: false, backend: "inprocess", noTray: false, quitOnClose: false, maximized: false, probe: false, tbMode: "d", safe: false, headless: false, pluginManager: false, pmProbe: false, noCheckUpdate: false, updateProbe: false };
   for (let i = 0; i < argv.length; i += 1) {
     switch (argv[i]) {
       case "--smoke": flags.smoke = true; break;
@@ -74,6 +78,8 @@ function parseFlags(argv: string[]): Flags {
       case "--headless": flags.headless = true; break;
       case "--plugin-manager": flags.pluginManager = true; break;
       case "--pm-probe": flags.pmProbe = true; break;
+      case "--no-check-update": flags.noCheckUpdate = true; break;
+      case "--update-probe": flags.updateProbe = true; break;
       default: break;
     }
   }
@@ -215,6 +221,7 @@ function createTray(): void {
   const menu = Menu.buildFromTemplate([
     { label: "Show DSH", click: () => showMainWindow() },
     { label: "插件管理器…", click: () => openPluginManager({}) },
+    { label: "检查 DSH 核心更新…", click: () => openUpdateWindow() },
     { type: "separator" },
     {
       label: "Quit",
@@ -433,7 +440,7 @@ function userPatchPath(): string {
 function relaunchApp(extraArgs: string[]): void {
   const baseArgs = process.argv.slice(app.isPackaged ? 1 : 2);
   const filtered = baseArgs.filter(
-    (a) => a !== "--safe" && a !== "--plugin-manager" && a !== "--pm-probe",
+    (a) => a !== "--safe" && a !== "--plugin-manager" && a !== "--pm-probe" && a !== "--update-probe",
   );
   const relaunchArgs = [...extraArgs, ...filtered];
   logLine("[recovery] relaunching with args", relaunchArgs);
@@ -629,6 +636,7 @@ if (!app.requestSingleInstanceLock()) {
         relaunch: (args) => relaunchApp(args),
         openFile: (file) => shell.openPath(file),
       });
+      installUpdaterIpc({ relaunch: (args) => relaunchApp(args) });
       if (flags.probe) {
         await runProbe();
         return;
@@ -639,6 +647,13 @@ if (!app.requestSingleInstanceLock()) {
       }
       if (flags.pmProbe) {
         await runPmProbe();
+        return;
+      }
+      if (flags.updateProbe) {
+        const info = await checkForUpdate();
+        console.log(`UPDATE-PROBE-JSON ${JSON.stringify(info)}`);
+        quitting = true;
+        app.exit(0);
         return;
       }
       // Fallback for the first paint: OS theme flips are applied only until
@@ -656,6 +671,21 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow = createMainWindow(booted.url);
       if (flags.maximized) mainWindow.maximize();
       if (!flags.noTray) createTray();
+      if (!flags.noCheckUpdate) {
+        // Silent startup check: prompt only when an update is actually available.
+        void checkForUpdate().then((info) => {
+          if (info.error !== null) {
+            logLine("[updater] auto-check failed:", info.error);
+            return;
+          }
+          if (info.updatable) {
+            logLine("[updater] update available:", info.installed, "->", info.latest);
+            openUpdateWindow();
+          } else {
+            logLine("[updater] up to date:", info.installed);
+          }
+        });
+      }
     } catch (error) {
       // bootWithRecovery handles boot failures; this is for shell-level surprises.
       logLine("[boot] unexpected:", error instanceof Error ? (error.stack ?? error.message) : String(error));

@@ -33,6 +33,7 @@
 | 🎨 **主题精修** | 走官方 `ThemeRuntime.overrideTokens` 扩展点，深浅色双套 token + Windows 原生字体栈 |
 | 🖱️ **自绘标题栏** | frameless + Window Controls Overlay，标题栏颜色跟随明暗主题实时切换 |
 | 🛟 **启动自救** | 插件炸了自动进入 GUI 插件管理器：禁用元凶或安全模式启动 |
+| 🔄 **核心更新检查** | 启动自动 + 托盘手动检查 DSH 核心（npm 为准），提示后确认才更新 |
 | 📦 **一键打包** | `electron-builder --win` 产出 Windows 安装包，原生模块免重建 |
 
 <!-- 在此添加截图：![主界面](docs/screenshot.png) -->
@@ -128,6 +129,8 @@ web 树内的全部原生模块都是 N-API，Node 与 Electron 双兼容，**�
 | `--safe` | 安全模式启动（跳过全部用户补丁层） |
 | `--plugin-manager` | 直接打开插件管理器 |
 | `--headless` | 无头启动失败诊断（打印 `RECOVERY-JSON` 后退出） |
+| `--no-check-update` | 关闭启动时的 DSH 核心更新自动检查 |
+| `--update-probe` | 无头跑一次更新检查并打印 `UPDATE-PROBE-JSON` 后退出 |
 
 ## 插件与扩展
 
@@ -229,6 +232,23 @@ macOS 保留最小默认菜单。
 `scripts/pm-ops-test.mjs`）+ `src/main/plugin-manager.ts`（窗口 + `pm:*` IPC + 本地
 http 页；本环境 `data:`/`file:` 加载被拦截，http 是唯一通道）。无头演练 `--pm-probe`：
 破坏补丁 → 管理器识别元凶 → IPC 禁用 → 普通启动成功，全链路自动化验证。
+
+## DSH 核心更新
+
+壳可以检查 DSH 核心（`@deepseek-ai/dsh` 等 npm 包）是否有新版本，**只提示、确认后才更新，绝不强制**：
+
+- **版本源以 npm 为准**：读 `@deepseek-ai/dsh` 在 registry 的 `latest` dist-tag（可安装的权威源）；
+  deepseek-harness 仓库 `master` 分支的 `apps/cli` 版本仅作对照展示（可能落后于 npm）。
+- **触发**：启动时自动静默检查（有新版本才弹窗）+ 托盘菜单「检查 DSH 核心更新…」手动检查。
+- **UI**：一个与插件管理器同款观感的无边框小窗口，显示 当前版本 / 最新版本 / master 分支，
+  有「更新」「稍后」按钮。
+- **更新动作**：确认后运行 `npm install @deepseek-ai/dsh@<latest> @deepseek-ai/dsh-app-boot@<latest>`
+  再提示「重启以生效」。仅 **dev 源码模式**支持就地更新；打包版按钮会提示重新安装安装包
+  （完整自动更新属 Phase 2）。
+- **关闭自动检查**：`--no-check-update`；无头诊断用 `--update-probe`。
+
+实现：`src/main/update-check.ts`（Electron-free：读已装版本 + 查 registry + 语义版本比较，可
+用纯 Node 冒烟）+ `src/main/updater.ts`（窗口 + `upd:*` IPC + npm 更新动作）。
 
 ## 打包
 
