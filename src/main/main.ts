@@ -88,6 +88,13 @@ function parseFlags(argv: string[]): Flags {
 }
 
 const flags = parseFlags(process.argv.slice(app.isPackaged ? 1 : 2));
+
+// Packaged apps launched with no arguments have process.argv[1] === undefined,
+// which crashes plugins that resolve it at init — cordis-plugin-hmr does
+// path.resolve(process.argv[1]) to compute its main-module URL (upstream CLI
+// always has argv[1]). Pad argv so those resolutions never see undefined; the
+// extra entry is a non-flag and parseFlags already ran above.
+if (process.argv.length < 2) process.argv.push(process.execPath);
 if (flags.userData !== undefined) app.setPath("userData", flags.userData);
 app.setAppUserModelId("dev.dsh.desktop");
 
@@ -610,6 +617,39 @@ async function acquireSingleInstanceLock(): Promise<boolean> {
 }
 
 void (async () => {
+  // Bundled-script worker mode: DSH core services (the win32 folder-dialog
+  // picker, the windows-acl sandbox runner) spawn their helper processes via
+  // process.execPath — which in a packaged app is this executable. A packaged
+  // exe cannot run a helper script the way the dev electron binary does: the
+  // child would boot the full app and die on the single-instance lock below
+  // before answering the parent's IPC handshake (symptom: "directory picker
+  // failed: ... win32 folder dialog worker exited before reporting a result").
+  // Detect the invocation and run the helper in-process instead.
+  const helperScript = process.argv.find((arg) =>
+    /@deepseek-ai[\\/]dsh-(?:host-directory-picker-native[\\/]lib[\\/]worker\.cjs|sandbox-windows-acl[\\/]lib[\\/]runner\.js)$/i.test(arg),
+  );
+  if (helperScript !== undefined) {
+    try {
+      await import(pathToFileURL(helperScript).href);
+    } catch (error) {
+      logLine("[helper] failed to start:", error);
+      process.exit(1);
+    }
+    if (/worker\.cjs$/.test(helperScript)) return; // dialog worker self-exits via its disconnect handler after reporting
+    // Sandbox runner: it sets process.exitCode when its wrapped command
+    // finishes, but Electron does not exit on an empty event loop the way
+    // node does — wait for the code, then exit with it so the caller's
+    // `spawnSync(...).status === 0` probe and exit-code mirroring work.
+    await new Promise<void>((resolveIt) => {
+      const check = () => {
+        if (process.exitCode !== undefined) resolveIt();
+        else setTimeout(check, 25);
+      };
+      check();
+    });
+    process.exit(process.exitCode ?? 1);
+  }
+
   if (!(await acquireSingleInstanceLock())) {
     app.quit();
     return;
