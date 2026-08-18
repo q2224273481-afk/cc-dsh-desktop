@@ -1,0 +1,18 @@
+diff --git a/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/index.js b/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/index.js
+index 5ae777f..5cdcb01 100644
+--- a/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/index.js
+@@ -75,6 +75,13 @@ function spawnDialogWorker(data) {
+ 		...process.env,
+ 		DSH_DIALOG_TITLE: data.title
+ 	};
++	// Desktop-shell patch: process.execPath is the Electron binary here (dev
++	// electron.exe or the packaged exe). Spawning it without ELECTRON_RUN_AS_NODE
++	// loads worker.cjs as an Electron app, which exits before answering the IPC
++	// handshake ("win32 folder dialog worker exited before reporting a result").
++	// RUN_AS_NODE makes the binary behave as plain node, so the worker's
++	// koffi/COM code runs unchanged.
++	if (process.versions.electron !== void 0) env.ELECTRON_RUN_AS_NODE = "1";
+ 	const stdio = [
+ 		"ignore",
+ 		"inherit",
